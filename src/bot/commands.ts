@@ -6,6 +6,7 @@ import type { MyContext } from "./create-bot.js";
 import { CATEGORIES, CATEGORY_EMOJI } from "../shared/constants.js";
 import { formatTotals, formatExpenseList } from "./messages/report.messages.js";
 import { parseDateRangeFromText, startOfMonth, todayInTimezone } from "../shared/dates.js";
+import { pdfTitle } from "./handlers/message.handler.js";
 
 export function registerCommands(bot: Bot<MyContext>): void {
   bot.command("start", (ctx) =>
@@ -98,7 +99,7 @@ Bu ayın ekstresini PDF gönder`),
     const file = path.join(os.tmpdir(), `expenses-statement-${Date.now()}.pdf`);
     try {
       await ctx.services.pdfReport.createExpenseStatement({
-        title: `${range.label} Gider Ekstresi`,
+        title: pdfTitle(range.label, range.from, range.to),
         periodLabel: `${range.from} - ${range.to}`,
         expenses: ctx.services.report.range(range.from, range.to),
         outputPath: file,

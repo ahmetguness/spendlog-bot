@@ -25,7 +25,9 @@ import {
   isPdfRequest,
   isSummary,
   isUpdateRequest,
+  pdfTitle,
   requestedLimit,
+  smartPeriodInsight,
 } from "../src/bot/handlers/message.handler.js";
 import { parseAmount } from "../src/parsing/amount-parser.js";
 import { matchCategory } from "../src/parsing/category-matcher.js";
@@ -66,6 +68,17 @@ function draft(overrides: Partial<ExpenseDraft> = {}): ExpenseDraft {
     parserType: "rule",
     parserConfidence: 0.9,
     telegramMessageId: 1,
+    ...overrides,
+  };
+}
+
+function expense(overrides: Partial<Expense> = {}): Expense {
+  return {
+    ...draft(overrides),
+    id: 1,
+    createdAt: "2026-08-03T00:00:00.000Z",
+    updatedAt: "2026-08-03T00:00:00.000Z",
+    deletedAt: null,
     ...overrides,
   };
 }
@@ -528,6 +541,7 @@ describe("natural language intent helpers", () => {
     expect(isListRequest("bugünkü harcamalarımı listele")).toBe(true);
     expect(isListRequest("bugün nereye para verdim")).toBe(true);
     expect(isListRequest("bu ayki kayıtları dök")).toBe(true);
+    expect(isListRequest("son 3 giderim ne")).toBe(true);
     expect(isListRequest("en pahalı 5 giderimi göster")).toBe(true);
     expect(isListRequest("sadece oyunları göster")).toBe(true);
     expect(isListRequest("apple olanlar")).toBe(true);
@@ -542,6 +556,44 @@ describe("natural language intent helpers", () => {
     expect(isAnalyticsRequest("2026'da en çok hangi işletmelere para verdim?")).toBe(true);
     expect(isAnalyticsRequest("Bu ay geçen aya göre ne kadar arttı?")).toBe(true);
     expect(isAnalyticsRequest("geçen ay ile bu ayın eğlence giderlerini karşılaştır")).toBe(true);
+    expect(isAnalyticsRequest("Bu ay normalden farklı ne var?")).toBe(true);
+  });
+  it("formats smart period insights", () => {
+    const output = smartPeriodInsight(
+      "Bu ay",
+      [
+        expense({
+          id: 1,
+          amountMinor: 155700,
+          category: "Seyahat",
+          merchant: "Container Beach",
+          expenseDate: "2026-08-01",
+        }),
+        expense({
+          id: 2,
+          amountMinor: 99900,
+          category: "Abonelik",
+          merchant: "ChatGPT",
+          expenseDate: "2026-08-03",
+          telegramMessageId: 2,
+        }),
+      ],
+      "Geçen ay",
+      [
+        expense({
+          id: 3,
+          amountMinor: 30000,
+          category: "Abonelik",
+          merchant: "Netflix",
+          expenseDate: "2026-07-03",
+          telegramMessageId: 3,
+        }),
+      ],
+    );
+    expect(output).toContain("Seyahat");
+    expect(output).toContain("₺1.557,00 arttı");
+    expect(output).toContain("En büyük tek harcama: Container Beach");
+    expect(output).toContain("En çok para verilen işletme: Container Beach");
   });
   it("builds comparison ranges from natural language", () => {
     expect(
@@ -564,10 +616,17 @@ describe("natural language intent helpers", () => {
     expect(isSummary("geçen ay kaç tl harcadım")).toBe(true);
     expect(isSummary("bu hafta ne tuttu")).toBe(true);
     expect(isSummary("2026 raporu gönder")).toBe(true);
+    expect(isSummary("son 3 giderim ne")).toBe(true);
   });
   it("recognizes PDF statement requests", () => {
     expect(isPdfRequest("ağustos ayının ekstresini pdf yap")).toBe(true);
     expect(isPdfRequest("ocak 2026 rapor dökümünü gönder")).toBe(true);
+  });
+  it("formats all-expense PDF titles with date range and month count", () => {
+    expect(pdfTitle("Tüm harcamalar", "2026-07-27", "2026-08-03")).toBe(
+      "2026-07-27 - 2026-08-03 Gider Ekstresi (2 ay)",
+    );
+    expect(pdfTitle("Bu ay", "2026-08-01", "2026-08-03")).toBe("Bu ay Gider Ekstresi");
   });
   it("recognizes delete and update requests", () => {
     expect(isDeleteRequest("son kaydı kaldır")).toBe(true);

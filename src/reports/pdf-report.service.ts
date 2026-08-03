@@ -49,10 +49,12 @@ export class PdfReportService {
       const fontPath = findUsableFont();
       if (fontPath) doc.font(fontPath);
 
-      renderHeader(doc, input);
-      renderTotals(doc, input.expenses);
-      renderCategorySummary(doc, input.expenses);
-      renderExpenseTable(doc, input.expenses);
+      const sorted = sortExpenses(input.expenses);
+      renderHeader(doc, { ...input, expenses: sorted });
+      renderTotals(doc, sorted);
+      renderTopExpenses(doc, sorted);
+      renderMonthlySummary(doc, sorted);
+      renderExpenseTable(doc, sorted);
 
       doc.end();
     });
@@ -64,15 +66,17 @@ function renderHeader(doc: PDFKit.PDFDocument, input: PdfReportInput): void {
   doc
     .fillColor("#FFFFFF")
     .fontSize(21)
-    .text(input.title, PAGE.margin, 36, { width: PAGE.contentWidth });
+    .text(input.title, PAGE.margin, 34, { width: PAGE.contentWidth });
   doc
     .fontSize(10)
     .fillColor("#DCE8F5")
-    .text(`Dönem: ${input.periodLabel}`, PAGE.margin, 68, { width: PAGE.contentWidth });
+    .text(`Dönem: ${input.periodLabel}`, PAGE.margin, 67, { width: PAGE.contentWidth });
   doc
     .fontSize(9)
     .fillColor("#DCE8F5")
-    .text(`İşlem sayısı: ${input.expenses.length}`, PAGE.margin, 88, { width: PAGE.contentWidth });
+    .text(`İşlem sayısı: ${input.expenses.length} · Ay sayısı: ${monthGroups(input.expenses).length}`, PAGE.margin, 88, {
+      width: PAGE.contentWidth,
+    });
   doc.y = 144;
   doc.fillColor(COLOR.ink);
 }
@@ -104,81 +108,93 @@ function renderTotals(doc: PDFKit.PDFDocument, expenses: Expense[]): void {
   doc.y = y + 78;
 }
 
-function renderCategorySummary(doc: PDFKit.PDFDocument, expenses: Expense[]): void {
-  sectionTitle(doc, "Kategori Özeti");
-  const categories = categoryTotals(expenses);
-  if (categories.size === 0) {
-    emptyBox(doc, "Kategori özeti için kayıt bulunamadı.");
+function renderTopExpenses(doc: PDFKit.PDFDocument, expenses: Expense[]): void {
+  sectionTitle(doc, "En Yüksek 5 Gider");
+  const top = [...expenses].sort((a, b) => b.amountMinor - a.amountMinor).slice(0, 5);
+  if (top.length === 0) {
+    emptyBox(doc, "En yüksek gider listesi için kayıt bulunamadı.");
+    return;
+  }
+  top.forEach((expense, index) => renderCompactExpenseRow(doc, expense, index + 1));
+  doc.moveDown(0.3);
+}
+
+function renderMonthlySummary(doc: PDFKit.PDFDocument, expenses: Expense[]): void {
+  sectionTitle(doc, "Aylık Özet");
+  const groups = monthGroups(expenses);
+  if (groups.length === 0) {
+    emptyBox(doc, "Aylık özet için kayıt bulunamadı.");
     return;
   }
 
-  for (const [category, data] of categories.entries()) {
-    ensureSpace(doc, 30);
-    const y = doc.y;
-    doc.roundedRect(PAGE.margin, y, PAGE.contentWidth, 26, 4).fill(COLOR.soft);
-    const amounts = [...data.totals.entries()]
-      .map(([currency, amount]) => formatMinorUnit(amount, currency))
-      .join(", ");
-    doc
-      .fillColor(COLOR.ink)
-      .fontSize(10)
-      .text(`${CATEGORY_EMOJI[category]} ${category}`, PAGE.margin + 10, y + 8, { width: 190 });
-    doc
-      .fillColor(COLOR.muted)
-      .fontSize(9)
-      .text(`${data.count} işlem`, PAGE.margin + 210, y + 8, { width: 70 });
-    doc
-      .fillColor(COLOR.ink)
-      .fontSize(9)
-      .text(amounts, PAGE.margin + 285, y + 8, { width: 215, align: "right" });
-    doc.y = y + 34;
+  for (const group of groups) {
+    ensureSpace(doc, 74);
+    renderMonthHeader(doc, group.label, group.expenses);
+    renderCategoryMiniTable(doc, group.expenses);
   }
 }
 
 function renderExpenseTable(doc: PDFKit.PDFDocument, expenses: Expense[]): void {
   sectionTitle(doc, "Detaylar");
-  if (expenses.length === 0) {
+  const groups = monthGroups(expenses);
+  if (groups.length === 0) {
     emptyBox(doc, "Detay listesi için kayıt bulunamadı.");
     return;
   }
 
-  let currentMonth = "";
-  expenses.forEach((expense, index) => {
-    const month = monthYearLabel(expense.expenseDate);
-    if (month !== currentMonth) {
-      ensureSpace(doc, 64);
-      renderMonthHeader(doc, month);
-      renderTableHeader(doc);
-      currentMonth = month;
-    } else {
+  for (const group of groups) {
+    ensureSpace(doc, 106);
+    renderMonthHeader(doc, group.label, group.expenses);
+    renderCategoryMiniTable(doc, group.expenses);
+    renderTableHeader(doc);
+    group.expenses.forEach((expense, index) => {
       ensureSpace(doc, 34);
-    }
-
-    const y = doc.y;
-    if ((index + 1) % 2 === 0) {
-      doc.rect(PAGE.margin, y - 5, PAGE.contentWidth, 28).fill(COLOR.soft);
-    }
-    const name = expense.merchant ?? expense.description ?? expense.category;
-    doc.fillColor(COLOR.ink).fontSize(8.5);
-    doc.text(formatDateTr(expense.expenseDate), PAGE.margin + 8, y, { width: 88 });
-    doc.text(expense.category, PAGE.margin + 105, y, { width: 82 });
-    doc.text(name, PAGE.margin + 197, y, { width: 190, ellipsis: true });
-    doc.text(formatMinorUnit(expense.amountMinor, expense.currency), PAGE.margin + 397, y, {
-      width: 105,
-      align: "right",
+      renderExpenseRow(doc, expense, index);
     });
-    doc.y = y + 28;
-  });
+  }
 }
 
-function renderMonthHeader(doc: PDFKit.PDFDocument, label: string): void {
+function renderMonthHeader(doc: PDFKit.PDFDocument, label: string, expenses: Expense[]): void {
   const y = doc.y;
-  doc.roundedRect(PAGE.margin, y, PAGE.contentWidth, 24, 4).fillAndStroke(COLOR.month, "#F4D48C");
+  const totals = [...totalsByCurrency(expenses).entries()]
+    .map(([currency, amount]) => formatMinorUnit(amount, currency))
+    .join(", ");
+  doc.roundedRect(PAGE.margin, y, PAGE.contentWidth, 28, 4).fillAndStroke(COLOR.month, "#F4D48C");
   doc
     .fillColor(COLOR.header)
     .fontSize(10)
-    .text(label, PAGE.margin + 10, y + 7, { width: PAGE.contentWidth - 20 });
-  doc.y = y + 32;
+    .text(label, PAGE.margin + 10, y + 9, { width: 190 });
+  doc
+    .fillColor(COLOR.ink)
+    .fontSize(9)
+    .text(`${expenses.length} işlem · ${totals}`, PAGE.margin + 210, y + 9, {
+      width: 290,
+      align: "right",
+    });
+  doc.y = y + 36;
+}
+
+function renderCategoryMiniTable(doc: PDFKit.PDFDocument, expenses: Expense[]): void {
+  const rows = [...categoryTotals(expenses).entries()];
+  for (const [category, data] of rows) {
+    ensureSpace(doc, 24);
+    const y = doc.y;
+    const amounts = [...data.totals.entries()]
+      .map(([currency, amount]) => formatMinorUnit(amount, currency))
+      .join(", ");
+    doc
+      .fillColor(COLOR.ink)
+      .fontSize(8.4)
+      .text(`${CATEGORY_EMOJI[category]} ${category}`, PAGE.margin + 8, y, { width: 190 });
+    doc
+      .fillColor(COLOR.muted)
+      .text(`${data.count} işlem`, PAGE.margin + 210, y, { width: 72 });
+    doc
+      .fillColor(COLOR.ink)
+      .text(amounts, PAGE.margin + 292, y, { width: 210, align: "right" });
+    doc.y = y + 18;
+  }
+  doc.moveDown(0.5);
 }
 
 function renderTableHeader(doc: PDFKit.PDFDocument): void {
@@ -191,6 +207,53 @@ function renderTableHeader(doc: PDFKit.PDFDocument): void {
   doc.text("İşletme / Açıklama", PAGE.margin + 197, y + 8, { width: 190 });
   doc.text("Tutar", PAGE.margin + 397, y + 8, { width: 105, align: "right" });
   doc.y = y + 34;
+}
+
+function renderExpenseRow(doc: PDFKit.PDFDocument, expense: Expense, index: number): void {
+  const y = doc.y;
+  if ((index + 1) % 2 === 0) {
+    doc.rect(PAGE.margin, y - 5, PAGE.contentWidth, 28).fill(COLOR.soft);
+  }
+  const name = expense.merchant ?? expense.description ?? expense.category;
+  doc.fillColor(COLOR.ink).fontSize(8.5);
+  doc.text(formatDateTr(expense.expenseDate), PAGE.margin + 8, y, { width: 88 });
+  doc.text(expense.category, PAGE.margin + 105, y, { width: 82 });
+  doc.text(name, PAGE.margin + 197, y, { width: 190, ellipsis: true });
+  doc.text(formatMinorUnit(expense.amountMinor, expense.currency), PAGE.margin + 397, y, {
+    width: 105,
+    align: "right",
+  });
+  doc.y = y + 28;
+}
+
+function renderCompactExpenseRow(
+  doc: PDFKit.PDFDocument,
+  expense: Expense,
+  index: number,
+): void {
+  ensureSpace(doc, 32);
+  const y = doc.y;
+  doc.roundedRect(PAGE.margin, y, PAGE.contentWidth, 25, 4).fill(COLOR.soft);
+  const name = expense.merchant ?? expense.description ?? expense.category;
+  doc
+    .fillColor(COLOR.ink)
+    .fontSize(9)
+    .text(`${index}. ${name}`, PAGE.margin + 10, y + 8, { width: 250, ellipsis: true });
+  doc
+    .fillColor(COLOR.muted)
+    .fontSize(8.4)
+    .text(`${formatDateTr(expense.expenseDate)} · ${expense.category}`, PAGE.margin + 270, y + 8, {
+      width: 118,
+      ellipsis: true,
+    });
+  doc
+    .fillColor(COLOR.ink)
+    .fontSize(9)
+    .text(formatMinorUnit(expense.amountMinor, expense.currency), PAGE.margin + 397, y + 8, {
+      width: 105,
+      align: "right",
+    });
+  doc.y = y + 32;
 }
 
 function sectionTitle(doc: PDFKit.PDFDocument, title: string): void {
@@ -220,6 +283,23 @@ function ensureSpace(doc: PDFKit.PDFDocument, needed: number): void {
     doc.addPage();
     doc.y = PAGE.margin;
   }
+}
+
+function sortExpenses(expenses: Expense[]): Expense[] {
+  return [...expenses].sort((a, b) =>
+    b.expenseDate === a.expenseDate ? b.id - a.id : b.expenseDate.localeCompare(a.expenseDate),
+  );
+}
+
+function monthGroups(expenses: Expense[]): Array<{ key: string; label: string; expenses: Expense[] }> {
+  const groups = new Map<string, { key: string; label: string; expenses: Expense[] }>();
+  for (const expense of expenses) {
+    const key = expense.expenseDate.slice(0, 7);
+    const current = groups.get(key) ?? { key, label: monthYearLabel(expense.expenseDate), expenses: [] };
+    current.expenses.push(expense);
+    groups.set(key, current);
+  }
+  return [...groups.values()].sort((a, b) => b.key.localeCompare(a.key));
 }
 
 function totalsByCurrency(expenses: Expense[]): Map<Currency, number> {

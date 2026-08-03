@@ -75,16 +75,16 @@ export function registerMessageHandler(bot: Bot<MyContext>): void {
       await ctx.reply(handleAnalytics(ctx, lower, today));
       return;
     }
-    if (isSummary(lower)) {
-      await ctx.reply(handleSummary(ctx, lower, today));
-      return;
-    }
     if (isDuplicateRequest(lower)) {
       await ctx.reply(handleDuplicates(ctx));
       return;
     }
     if (isListRequest(lower)) {
       await ctx.reply(handleList(ctx, lower, today));
+      return;
+    }
+    if (isSummary(lower)) {
+      await ctx.reply(handleSummary(ctx, lower, today));
       return;
     }
     if (isDeleteRequest(lower)) {
@@ -210,6 +210,9 @@ export function isSummary(lower: string): boolean {
 
 export function isListRequest(lower: string): boolean {
   return (
+    /\bson\s+\d{1,2}\s+(?:gider|giderim|giderimi|harcama|harcamam|harcamamı|işlem|islem)\b/u.test(
+      lower,
+    ) ||
     lower.includes("listele") ||
     lower.includes("göster") ||
     lower.includes("goster") ||
@@ -258,11 +261,12 @@ async function sendPdfReport(ctx: MyContext, lower: string, today: string): Prom
     label: "Bu ay",
   };
   const file = path.join(os.tmpdir(), `expenses-statement-${Date.now()}.pdf`);
+  const expenses = ctx.services.report.range(range.from, range.to, categoryFromText(lower));
   try {
     await ctx.services.pdfReport.createExpenseStatement({
-      title: `${range.label} Gider Ekstresi`,
+      title: pdfTitle(range.label, range.from, range.to),
       periodLabel: `${range.from} - ${range.to}`,
-      expenses: ctx.services.report.range(range.from, range.to, categoryFromText(lower)),
+      expenses,
       outputPath: file,
     });
     await ctx.replyWithDocument(
@@ -279,6 +283,19 @@ function pdfRangeFromText(ctx: MyContext, lower: string, today: string) {
     return bounds ? { ...bounds, label: "Tüm harcamalar" } : null;
   }
   return parseDateRangeFromText(lower, today);
+}
+
+export function pdfTitle(label: string, from: string, to: string): string {
+  if (label !== "Tüm harcamalar") return `${label} Gider Ekstresi`;
+  return `${from} - ${to} Gider Ekstresi (${inclusiveMonthCount(from, to)} ay)`;
+}
+
+function inclusiveMonthCount(from: string, to: string): number {
+  const fromYear = Number(from.slice(0, 4));
+  const fromMonth = Number(from.slice(5, 7));
+  const toYear = Number(to.slice(0, 4));
+  const toMonth = Number(to.slice(5, 7));
+  return (toYear - fromYear) * 12 + toMonth - fromMonth + 1;
 }
 
 function isAllExpensesRequest(lower: string): boolean {
@@ -324,6 +341,9 @@ function handleSummary(ctx: MyContext, lower: string, today: string): string {
 }
 
 function handleAnalytics(ctx: MyContext, lower: string, today: string): string {
+  if (isSmartPeriodInsightRequest(lower)) {
+    return formatSmartPeriodInsight(ctx, lower, today);
+  }
   if (isMerchantRankingRequest(lower)) {
     return handleMerchantRanking(ctx, lower, today);
   }
@@ -366,6 +386,59 @@ function handleMerchantRanking(ctx: MyContext, lower: string, today: string): st
         `${index + 1}. ${row.merchant}\n${row.count} işlem · ${formatMinorUnit(row.amountMinor, row.currency)}`,
     )
     .join("\n\n")}`;
+}
+
+function formatSmartPeriodInsight(ctx: MyContext, lower: string, today: string): string {
+  const range = parseDateRangeFromText(lower, today) ?? currentMonthRange(today);
+  const previous = previousComparableRange(range.from, range.to);
+  const category = categoryFromText(lower);
+  const currentExpenses = ctx.services.report.range(range.from, range.to, category);
+  const previousExpenses = ctx.services.report.range(previous.from, previous.to, category);
+  return smartPeriodInsight(range.label, currentExpenses, previous.label, previousExpenses);
+}
+
+export function smartPeriodInsight(
+  currentLabel: string,
+  current: Expense[],
+  previousLabel: string,
+  previous: Expense[],
+): string {
+  if (current.length === 0 && previous.length === 0) {
+    return `${currentLabel} dikkat çekenler\n\nBu dönem ve karşılaştırma döneminde kayıt bulunamadı.`;
+  }
+
+  const lines: string[] = [];
+  const deltas = categoryDeltaRows(previous, current)
+    .filter((row) => row.diff !== 0)
+    .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff))
+    .slice(0, 3);
+
+  for (const row of deltas) {
+    const direction = row.diff > 0 ? "arttı" : "azaldı";
+    lines.push(
+      `${row.category} ${previousLabel.toLocaleLowerCase("tr-TR")} dönemine göre ${formatMinorUnit(Math.abs(row.diff), row.currency)} ${direction}.`,
+    );
+  }
+
+  const biggest = [...current].sort((a, b) => b.amountMinor - a.amountMinor)[0];
+  if (biggest) {
+    const name = biggest.merchant ?? biggest.description ?? biggest.category;
+    lines.push(
+      `En büyük tek harcama: ${name} (${formatMinorUnit(biggest.amountMinor, biggest.currency)}).`,
+    );
+  }
+
+  const topMerchant = merchantRanking(current)[0];
+  if (topMerchant) {
+    lines.push(
+      `En çok para verilen işletme: ${topMerchant.merchant} (${topMerchant.count} işlem, ${formatMinorUnit(topMerchant.amountMinor, topMerchant.currency)}).`,
+    );
+  }
+
+  if (lines.length === 0) {
+    lines.push("Bu dönemde önceki döneme göre belirgin bir fark görünmüyor.");
+  }
+  return `${currentLabel} dikkat çekenler\n\n${lines.join("\n")}`;
 }
 
 export function comparisonRangesFromText(lower: string, today: string) {
@@ -707,6 +780,7 @@ function amountFilterFromText(
 
 export function isAnalyticsRequest(lower: string): boolean {
   return (
+    isSmartPeriodInsightRequest(lower) ||
     lower.includes("karşılaştır") ||
     lower.includes("karsilastir") ||
     lower.includes("kıyasla") ||
@@ -718,6 +792,18 @@ export function isAnalyticsRequest(lower: string): boolean {
     lower.includes("ne kadar azaldı") ||
     lower.includes("ne kadar azaldi") ||
     isMerchantRankingRequest(lower)
+  );
+}
+
+function isSmartPeriodInsightRequest(lower: string): boolean {
+  return (
+    lower.includes("normalden farkl") ||
+    lower.includes("dikkat çeken") ||
+    lower.includes("dikkat ceken") ||
+    lower.includes("öne çıkan") ||
+    lower.includes("one cikan") ||
+    lower.includes("farklı ne var") ||
+    lower.includes("farkli ne var")
   );
 }
 
@@ -749,6 +835,21 @@ function previousMonthRange(today: string) {
   return { from, to: endOfMonth(from), label: "Geçen ay" };
 }
 
+function previousComparableRange(from: string, to: string) {
+  const start = new Date(`${from}T12:00:00Z`);
+  const end = new Date(`${to}T12:00:00Z`);
+  const days = Math.max(0, Math.round((end.getTime() - start.getTime()) / 86_400_000));
+  const previousEnd = new Date(start);
+  previousEnd.setUTCDate(previousEnd.getUTCDate() - 1);
+  const previousStart = new Date(previousEnd);
+  previousStart.setUTCDate(previousStart.getUTCDate() - days);
+  return {
+    from: previousStart.toISOString().slice(0, 10),
+    to: previousEnd.toISOString().slice(0, 10),
+    label: `${previousStart.toISOString().slice(0, 10)} - ${previousEnd.toISOString().slice(0, 10)}`,
+  };
+}
+
 function sumByCurrency(expenses: Expense[], currency: Expense["currency"]): number {
   return expenses
     .filter((expense) => expense.currency === currency)
@@ -777,23 +878,29 @@ function merchantRanking(expenses: Expense[]) {
 }
 
 function topCategoryDeltas(previous: Expense[], current: Expense[]): string[] {
-  const categories = new Set([...previous, ...current].map((expense) => expense.category));
-  const rows = [...categories].map((category) => {
-    const before = previous
-      .filter((expense) => expense.category === category && expense.currency === "TRY")
-      .reduce((total, expense) => total + expense.amountMinor, 0);
-    const after = current
-      .filter((expense) => expense.category === category && expense.currency === "TRY")
-      .reduce((total, expense) => total + expense.amountMinor, 0);
-    return { category, diff: after - before };
-  });
-  return rows
+  return categoryDeltaRows(previous, current)
     .filter((row) => row.diff !== 0)
     .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff))
     .map((row) => {
       const direction = row.diff > 0 ? "arttı" : "azaldı";
-      return `${row.category}: ${formatMinorUnit(Math.abs(row.diff), "TRY")} ${direction}`;
+      return `${row.category}: ${formatMinorUnit(Math.abs(row.diff), row.currency)} ${direction}`;
     });
+}
+
+function categoryDeltaRows(previous: Expense[], current: Expense[]) {
+  const keys = new Set(
+    [...previous, ...current].map((expense) => `${expense.category}|${expense.currency}`),
+  );
+  return [...keys].map((key) => {
+    const [category, currency] = key.split("|") as [Expense["category"], Expense["currency"]];
+    const before = previous
+      .filter((expense) => expense.category === category && expense.currency === currency)
+      .reduce((total, expense) => total + expense.amountMinor, 0);
+    const after = current
+      .filter((expense) => expense.category === category && expense.currency === currency)
+      .reduce((total, expense) => total + expense.amountMinor, 0);
+    return { category, currency, diff: after - before };
+  });
 }
 
 export function isDeleteRequest(lower: string): boolean {
