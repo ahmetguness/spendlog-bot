@@ -64,6 +64,9 @@ export interface DateRange {
 
 export function parseDateRangeFromText(text: string, todayIso: string): DateRange | null {
   const lower = text.toLocaleLowerCase("tr-TR");
+  const explicitRange = parseExplicitDateRange(lower, todayIso);
+  if (explicitRange) return explicitRange;
+
   const explicitDate = parseExplicitDate(lower, todayIso);
   if (explicitDate) {
     return { from: explicitDate, to: explicitDate, label: formatDateTr(explicitDate) };
@@ -125,6 +128,38 @@ export function parseDateRangeFromText(text: string, todayIso: string): DateRang
     return { from: startOfMonth(todayIso), to: todayIso, label: "Bu ay" };
   }
   return null;
+}
+
+function parseExplicitDateRange(lower: string, todayIso: string): DateRange | null {
+  const hasRangeWord =
+    /\b(?:ile|ve)\b/u.test(lower) ||
+    /\b(?:aras[ıi]|aras[ıi]nda|aras[ıi]ndaki|aral[ıi]ğ[ıi]|araligi)\b/u.test(lower);
+  if (!hasRangeWord) return null;
+
+  const dates = explicitDatesInText(lower, todayIso);
+  const first = dates[0];
+  const second = dates[1];
+  if (!first || !second) return null;
+
+  const from = first <= second ? first : second;
+  const to = first <= second ? second : first;
+  return { from, to, label: `${formatDateTr(from)} - ${formatDateTr(to)}` };
+}
+
+function explicitDatesInText(lower: string, todayIso: string): string[] {
+  const matches = [
+    ...lower.matchAll(/\b20\d{2}-\d{2}-\d{2}\b/gu),
+    ...lower.matchAll(/\b\d{1,2}\.\d{1,2}\.20\d{2}\b/gu),
+    ...lower.matchAll(/\b\d{1,2}\s*[a-zçğıöşü']+(?:\s+20\d{2})?\b/gu),
+  ]
+    .map((match) => ({
+      index: match.index ?? 0,
+      value: parseExplicitDate(match[0], todayIso),
+    }))
+    .filter((match): match is { index: number; value: string } => match.value !== null)
+    .sort((a, b) => a.index - b.index);
+
+  return matches.map((match) => match.value);
 }
 
 function parseExplicitDate(lower: string, todayIso: string): string | null {

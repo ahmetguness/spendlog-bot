@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { createDatabaseClient } from "../src/database/client.js";
+import { loadEnv } from "../src/config/env.js";
 import { migrate } from "../src/database/migrate.js";
 import { AliasRepository } from "../src/database/repositories/alias.repository.js";
 import { ExpenseRepository } from "../src/database/repositories/expense.repository.js";
@@ -28,7 +29,7 @@ import {
 } from "../src/bot/handlers/message.handler.js";
 import { parseAmount } from "../src/parsing/amount-parser.js";
 import { matchCategory } from "../src/parsing/category-matcher.js";
-import { StructuredParseSchema } from "../src/parsing/parsing.schemas.js";
+import { BankImageParseSchema, StructuredParseSchema } from "../src/parsing/parsing.schemas.js";
 import { RuleBasedParser } from "../src/parsing/rule-based-parser.js";
 import { PdfReportService } from "../src/reports/pdf-report.service.js";
 import { ReportService } from "../src/reports/report.service.js";
@@ -125,6 +126,21 @@ describe("date and category parser", () => {
       from: "2026-07-01",
       to: "2026-07-31",
     });
+    expect(
+      parseDateRangeFromText(
+        "2 agustos 2026 ile 4 agustos 2026 arasi ekstreyi pdf olarak ver",
+        "2026-08-05",
+      ),
+    ).toMatchObject({
+      from: "2026-08-02",
+      to: "2026-08-04",
+    });
+    expect(
+      parseDateRangeFromText("4 Ağustos 2026 ile 2 Ağustos 2026 arası harcadıklarım", "2026-08-05"),
+    ).toMatchObject({
+      from: "2026-08-02",
+      to: "2026-08-04",
+    });
     expect(parseDateRangeFromText("2026 yıllık raporu gönder", "2036-08-03")).toMatchObject({
       from: "2026-01-01",
       to: "2026-12-31",
@@ -160,6 +176,59 @@ describe("structured output", () => {
         missingFields: [],
       }),
     ).not.toThrow();
+  });
+  it("validates bank image structured output", () => {
+    expect(() =>
+      BankImageParseSchema.parse({
+        sourceType: "bank_screenshot",
+        expenses: [
+          {
+            amount: "39,99",
+            currency: "TRY",
+            category: "Abonelik",
+            merchant: "APPLE.COM/BILL",
+            description: "Sanal POS alışveriş",
+            expenseDate: "2026-08-03",
+            rawTransactionText: "03 AĞU 16:38 APPLE.COM/BILL -39,99 TL",
+            confidence: 0.9,
+          },
+        ],
+      }),
+    ).not.toThrow();
+  });
+  it("validates receipt image structured output", () => {
+    expect(() =>
+      BankImageParseSchema.parse({
+        sourceType: "receipt",
+        expenses: [
+          {
+            amount: "850,00",
+            currency: "TRY",
+            category: "Market",
+            merchant: "Migros",
+            description: "Alışveriş fişi genel toplam",
+            expenseDate: "2026-08-03",
+            rawTransactionText: "MIGROS GENEL TOPLAM 850,00 TL",
+            confidence: 0.92,
+          },
+        ],
+      }),
+    ).not.toThrow();
+  });
+});
+
+describe("environment config", () => {
+  it("allows an empty optional image model", () => {
+    const env = loadEnv({
+      TELEGRAM_BOT_TOKEN: "token",
+      ALLOWED_TELEGRAM_USER_ID: "123",
+      OPENAI_API_KEY: "key",
+      OPENAI_MODEL: "gpt-4.1-mini",
+      OPENAI_IMAGE_MODEL: "",
+    });
+    expect(env.OPENAI_IMAGE_MODEL).toBeUndefined();
+    expect(env.MAX_IMAGE_EXPENSES).toBe(10);
+    expect(env.MIN_IMAGE_CONFIDENCE).toBe(0.8);
   });
 });
 

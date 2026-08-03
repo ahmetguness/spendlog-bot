@@ -54,7 +54,7 @@ Telegram kullanıcı ID’nizi `@userinfobot` gibi bir yardımcı bot ile öğre
 
 ## 8. OpenAI API Anahtarı Tanımlama
 
-OpenAI API anahtarınızı `OPENAI_API_KEY` alanına, Structured Outputs destekleyen model adını `OPENAI_MODEL` alanına yazın. Model adı kodda hard-code edilmez.
+OpenAI API anahtarınızı `OPENAI_API_KEY` alanına, Structured Outputs destekleyen model adını `OPENAI_MODEL` alanına yazın. Banka ekran görüntüsü ve alışveriş fişi analizi için `OPENAI_IMAGE_MODEL` opsiyoneldir; boş bırakılırsa `OPENAI_MODEL` kullanılır. OCR doğruluğu için görüntü destekleyen güçlü bir model seçilmelidir. Model adları kodda hard-code edilmez.
 
 ## 9. Environment Variables
 
@@ -65,11 +65,16 @@ TELEGRAM_BOT_TOKEN=
 ALLOWED_TELEGRAM_USER_ID=
 OPENAI_API_KEY=
 OPENAI_MODEL=
+OPENAI_IMAGE_MODEL=
+MAX_IMAGE_EXPENSES=10
+MIN_IMAGE_CONFIDENCE=0.8
 DATABASE_PATH=/app/data/expenses.db
 DEFAULT_TIMEZONE=Europe/Istanbul
 PENDING_EXPENSE_TTL_MINUTES=30
 MAX_MESSAGE_LENGTH=2000
 ```
+
+Banka uygulaması ekran görüntüsü veya alışveriş fişi gönderildiğinde bot giderleri analiz eder, bakiye ve kart numarası gibi hassas alanları kaydetmeden bulunan giderleri onaya sunar. Banka ekranlarında giden POS/kart hareketleri çıkarılır. Alışveriş fişlerinde ürün satırları tek tek gider yapılmaz; fişin genel toplamı tek gider olarak hazırlanır. Tek görselden çıkarılacak maksimum hareket sayısı `MAX_IMAGE_EXPENSES` ile sınırlandırılır. `MIN_IMAGE_CONFIDENCE` altındaki hareketler kayda hazırlanmaz; düşük güvenli OCR sonucunda yanlış gider açmak yerine hareket atlanır.
 
 ## 10. Lokal Geliştirme Kurulumu
 
