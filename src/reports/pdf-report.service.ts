@@ -16,7 +16,6 @@ export interface PdfReportInput {
 const PAGE = {
   margin: 42,
   width: 595.28,
-  height: 841.89,
   contentWidth: 511.28,
   bottom: 785,
 };
@@ -29,6 +28,7 @@ const COLOR = {
   header: "#203A59",
   accent: "#0F766E",
   total: "#EAF7F4",
+  month: "#FFF7E6",
 };
 
 export class PdfReportService {
@@ -53,7 +53,6 @@ export class PdfReportService {
       renderTotals(doc, input.expenses);
       renderCategorySummary(doc, input.expenses);
       renderExpenseTable(doc, input.expenses);
-      renderFooter(doc);
 
       doc.end();
     });
@@ -142,11 +141,21 @@ function renderExpenseTable(doc: PDFKit.PDFDocument, expenses: Expense[]): void 
     emptyBox(doc, "Detay listesi için kayıt bulunamadı.");
     return;
   }
-  renderTableHeader(doc);
-  for (const expense of expenses) {
-    ensureSpace(doc, 34);
+
+  let currentMonth = "";
+  expenses.forEach((expense, index) => {
+    const month = monthYearLabel(expense.expenseDate);
+    if (month !== currentMonth) {
+      ensureSpace(doc, 64);
+      renderMonthHeader(doc, month);
+      renderTableHeader(doc);
+      currentMonth = month;
+    } else {
+      ensureSpace(doc, 34);
+    }
+
     const y = doc.y;
-    if ((expenses.indexOf(expense) + 1) % 2 === 0) {
+    if ((index + 1) % 2 === 0) {
       doc.rect(PAGE.margin, y - 5, PAGE.contentWidth, 28).fill(COLOR.soft);
     }
     const name = expense.merchant ?? expense.description ?? expense.category;
@@ -159,7 +168,17 @@ function renderExpenseTable(doc: PDFKit.PDFDocument, expenses: Expense[]): void 
       align: "right",
     });
     doc.y = y + 28;
-  }
+  });
+}
+
+function renderMonthHeader(doc: PDFKit.PDFDocument, label: string): void {
+  const y = doc.y;
+  doc.roundedRect(PAGE.margin, y, PAGE.contentWidth, 24, 4).fillAndStroke(COLOR.month, "#F4D48C");
+  doc
+    .fillColor(COLOR.header)
+    .fontSize(10)
+    .text(label, PAGE.margin + 10, y + 7, { width: PAGE.contentWidth - 20 });
+  doc.y = y + 32;
 }
 
 function renderTableHeader(doc: PDFKit.PDFDocument): void {
@@ -172,26 +191,6 @@ function renderTableHeader(doc: PDFKit.PDFDocument): void {
   doc.text("İşletme / Açıklama", PAGE.margin + 197, y + 8, { width: 190 });
   doc.text("Tutar", PAGE.margin + 397, y + 8, { width: 105, align: "right" });
   doc.y = y + 34;
-}
-
-function renderFooter(doc: PDFKit.PDFDocument): void {
-  const range = doc.bufferedPageRange();
-  for (let index = 0; index < range.count; index += 1) {
-    doc.switchToPage(index);
-    doc
-      .strokeColor(COLOR.line)
-      .lineWidth(0.7)
-      .moveTo(PAGE.margin, 805)
-      .lineTo(PAGE.width - PAGE.margin, 805)
-      .stroke();
-    doc
-      .fillColor(COLOR.muted)
-      .fontSize(8)
-      .text(`Sayfa ${index + 1}/${range.count}`, PAGE.margin, 814, {
-        width: PAGE.contentWidth,
-        align: "right",
-      });
-  }
 }
 
 function sectionTitle(doc: PDFKit.PDFDocument, title: string): void {
@@ -248,6 +247,13 @@ function categoryTotals(
     categories.set(expense.category, current);
   }
   return categories;
+}
+
+function monthYearLabel(dateIso: string): string {
+  return new Intl.DateTimeFormat("tr-TR", {
+    month: "long",
+    year: "numeric",
+  }).format(new Date(`${dateIso}T12:00:00Z`));
 }
 
 function findUsableFont(): string | null {
