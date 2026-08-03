@@ -210,7 +210,7 @@ export function isSummary(lower: string): boolean {
 
 export function isListRequest(lower: string): boolean {
   return (
-    /\bson\s+\d{1,2}\s+(?:gider|giderim|giderimi|harcama|harcamam|harcamamı|işlem|islem)\b/u.test(
+    /\bson\s+\d{1,2}\s+(?:gider(?:im|imi|lerim|lerimi)?|harcama(?:m|mı|larım|larımı)?|işlem(?:im|imi|lerim|lerimi)?|islem(?:im|imi|lerim|lerimi)?)\b/u.test(
       lower,
     ) ||
     lower.includes("listele") ||

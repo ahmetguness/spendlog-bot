@@ -542,6 +542,9 @@ describe("natural language intent helpers", () => {
     expect(isListRequest("bugün nereye para verdim")).toBe(true);
     expect(isListRequest("bu ayki kayıtları dök")).toBe(true);
     expect(isListRequest("son 3 giderim ne")).toBe(true);
+    expect(isListRequest("son 3 harcamam ne")).toBe(true);
+    expect(isListRequest("son 3 harcamalarımı göster")).toBe(true);
+    expect(isListRequest("son 3 işlemim ne")).toBe(true);
     expect(isListRequest("en pahalı 5 giderimi göster")).toBe(true);
     expect(isListRequest("sadece oyunları göster")).toBe(true);
     expect(isListRequest("apple olanlar")).toBe(true);
