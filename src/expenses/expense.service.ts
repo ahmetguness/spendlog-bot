@@ -29,6 +29,22 @@ export class ExpenseService {
     this.pending.delete(id);
   }
 
+  latestPending(): PendingExpense | null {
+    return this.pending.latestActive();
+  }
+
+  updatePending(
+    id: number,
+    patch: Partial<
+      Pick<
+        PendingExpense,
+        "amountMinor" | "currency" | "category" | "merchant" | "description" | "expenseDate"
+      >
+    >,
+  ): PendingExpense {
+    return this.pending.update(id, patch);
+  }
+
   cleanupExpired(): number {
     return (
       this.pending.deleteExpired() + this.pendingUpdates.deleteExpired() + this.undo.deleteExpired()

@@ -35,6 +35,7 @@ export function registerMessageHandler(bot: Bot<MyContext>): void {
     const today = todayInTimezone(ctx.env.DEFAULT_TIMEZONE);
     const lower = text.toLocaleLowerCase("tr-TR");
     if (await handleAliasTeaching(ctx, text, lower)) return;
+    if (await handlePendingCorrection(ctx, text, lower, today)) return;
     const expenseLines = extractExpenseLines(text);
     if (expenseLines.length > 1) {
       const pendingIds: number[] = [];
@@ -508,6 +509,64 @@ function handleDuplicates(ctx: MyContext): string {
       ].join("\n"),
     )
     .join("\n\n")}`;
+}
+
+async function handlePendingCorrection(
+  ctx: MyContext,
+  text: string,
+  lower: string,
+  today: string,
+): Promise<boolean> {
+  const pending = ctx.services.expense.latestPending();
+  if (!pending) return false;
+
+  const patch: Parameters<MyContext["services"]["expense"]["updatePending"]>[1] = {};
+  const amount = parseAmount(text);
+  if (amount && isAmountOnlyCorrection(lower)) {
+    patch.amountMinor = amount.amountMinor;
+    patch.currency = amount.currency;
+  } else if (hasFieldWord(lower, ["tutar", "tutarı", "tutarını", "fiyat", "fiyatı", "ucret", "ücret"])) {
+    if (!amount) return false;
+    patch.amountMinor = amount.amountMinor;
+    patch.currency = amount.currency;
+  } else if (hasFieldWord(lower, ["kategori", "kategorisi", "kategorisini"])) {
+    const value = cleanUpdateValue(text, /(kategori(?:si|sini)?)/iu);
+    patch.category = parseCategoryName(value) ?? matchCategory(value);
+  } else if (hasFieldWord(lower, ["tarih", "tarihi", "tarihini"])) {
+    const value = cleanUpdateValue(text, /(tarih(?:i|ini)?)/iu);
+    const range = parseDateRangeFromText(value, today);
+    if (!range || range.from !== range.to) return false;
+    patch.expenseDate = range.from;
+  } else if (hasFieldWord(lower, ["işletme", "isletme"])) {
+    const merchant = cleanUpdateValue(text, /(işletme(?:si|sini)?|isletme(?:si|sini)?)/iu);
+    if (!merchant) return false;
+    patch.merchant = merchant;
+  } else if (hasFieldWord(lower, ["açıklama", "aciklama", "açıklamasını", "aciklamasini"])) {
+    const description = cleanUpdateValue(
+      text,
+      /(açıklama(?:sını|sı)?|aciklama(?:sini|si)?)/iu,
+    );
+    patch.description = description || null;
+  } else {
+    return false;
+  }
+
+  const updated = ctx.services.expense.updatePending(pending.id, patch);
+  await ctx.reply(`Bekleyen gideri düzelttim.\n\n${expensePreview(updated)}`, {
+    reply_markup: expenseConfirmationKeyboard(updated.id),
+  });
+  return true;
+}
+
+function isAmountOnlyCorrection(lower: string): boolean {
+  const amount = parseAmount(lower);
+  if (!amount) return false;
+  const rest = lower
+    .replace(amount.rawAmount.toLocaleLowerCase("tr-TR"), " ")
+    .replace(/\b(?:olsun|yap|yapsana|olarak|diye|düzelt|duzelt|değiştir|degistir)\b/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim();
+  return rest.length === 0;
 }
 
 export function duplicateGroups(expenses: Expense[]): Expense[][] {

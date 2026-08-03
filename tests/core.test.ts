@@ -257,6 +257,21 @@ describe("repositories", () => {
     const pending = service.createPending(draft());
     expect(service.confirmPending(pending.id)?.expense.id).toBe(1);
   });
+  it("updates latest pending expenses before confirmation", () => {
+    const client = db();
+    const service = new ExpenseService(
+      new ExpenseRepository(client.sqlite),
+      new PendingExpenseRepository(client.sqlite),
+      new PendingUpdateRepository(client.sqlite),
+      new UndoRepository(client.sqlite),
+      30,
+    );
+    const pending = service.createPending(draft({ amountMinor: 30000 }));
+    expect(service.latestPending()?.id).toBe(pending.id);
+    const updated = service.updatePending(pending.id, { amountMinor: 100000 });
+    expect(updated.amountMinor).toBe(100000);
+    expect(service.confirmPending(pending.id)?.expense.amountMinor).toBe(100000);
+  });
   it("rejects expired pending expenses", () => {
     const client = db();
     const service = new ExpenseService(

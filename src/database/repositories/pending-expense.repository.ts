@@ -31,6 +31,42 @@ export class PendingExpenseRepository {
     );
   }
 
+  latestActive(nowIso = new Date().toISOString()): PendingExpense | null {
+    return (
+      (this.sqlite
+        .prepare(
+          `SELECT ${SELECT} FROM pending_expenses
+           WHERE expires_at > ?
+           ORDER BY created_at DESC, id DESC
+           LIMIT 1`,
+        )
+        .get(nowIso) as PendingExpense | undefined) ?? null
+    );
+  }
+
+  update(
+    id: number,
+    patch: Partial<
+      Pick<
+        PendingExpense,
+        "amountMinor" | "currency" | "category" | "merchant" | "description" | "expenseDate"
+      >
+    >,
+  ): PendingExpense {
+    const current = this.findById(id);
+    if (!current) throw new Error("Pending expense not found");
+    this.sqlite
+      .prepare(
+        `UPDATE pending_expenses
+         SET amount_minor=@amountMinor,currency=@currency,category=@category,merchant=@merchant,description=@description,expense_date=@expenseDate
+         WHERE id=@id`,
+      )
+      .run({ ...current, ...patch, id });
+    const updated = this.findById(id);
+    if (!updated) throw new Error("Pending expense not found");
+    return updated;
+  }
+
   delete(id: number): void {
     this.sqlite.prepare("DELETE FROM pending_expenses WHERE id = ?").run(id);
   }
