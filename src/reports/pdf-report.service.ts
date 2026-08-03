@@ -145,7 +145,6 @@ function renderExpenseTable(doc: PDFKit.PDFDocument, expenses: Expense[]): void 
   for (const group of groups) {
     ensureSpace(doc, 106);
     renderMonthHeader(doc, group.label, group.expenses);
-    renderCategoryMiniTable(doc, group.expenses);
     renderTableHeader(doc);
     group.expenses.forEach((expense, index) => {
       ensureSpace(doc, 34);
