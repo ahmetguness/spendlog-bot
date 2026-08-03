@@ -58,10 +58,12 @@ export function registerImageHandler(bot: Bot<MyContext>): void {
         {
           eventType: "expense_image_parse_failed",
           errorCode: error instanceof Error ? error.name : "unknown",
+          errorReason: imageErrorReason(error),
+          errorMessage: safeErrorMessage(error),
         },
         "Expense image parse failed",
       );
-      await ctx.reply("Görseldeki giderleri anlayamadım. Daha net bir fotoğraf deneyebilirsin.");
+      await ctx.reply(imageErrorMessage(error));
     }
   });
 }
@@ -98,8 +100,44 @@ async function downloadTelegramImage(
   const url = `https://api.telegram.org/file/bot${ctx.env.TELEGRAM_BOT_TOKEN}/${file.file_path}`;
   const response = await fetch(url);
   if (!response.ok) throw new Error("Telegram file download failed");
-  const contentType = response.headers.get("content-type") ?? fallbackMimeType;
+  const contentType = imageContentType(response.headers.get("content-type"), fallbackMimeType);
   const bytes = Buffer.from(await response.arrayBuffer());
   if (bytes.length > MAX_DOWNLOAD_BYTES) throw new Error("Telegram file too large");
   return { base64: bytes.toString("base64"), mimeType: contentType };
+}
+
+function imageContentType(raw: string | null, fallback: string): string {
+  return raw?.startsWith("image/") ? raw : fallback;
+}
+
+function imageErrorReason(error: unknown): string {
+  if (!(error instanceof Error)) return "unknown";
+  const lower = error.message.toLocaleLowerCase("tr-TR");
+  if (lower.startsWith("model:")) return "model";
+  if (lower.startsWith("schema:")) return "schema";
+  if (lower.startsWith("amount:")) return "amount";
+  if (lower.includes("telegram")) return "telegram";
+  return "unknown";
+}
+
+function safeErrorMessage(error: unknown): string {
+  if (!(error instanceof Error)) return "unknown";
+  return error.message.slice(0, 500);
+}
+
+function imageErrorMessage(error: unknown): string {
+  const reason = imageErrorReason(error);
+  if (reason === "model") {
+    return "Görseli okuyacak model çalışmadı. `.env` içindeki `OPENAI_IMAGE_MODEL` görüntü destekleyen bir model olmalı; boşsa `OPENAI_MODEL` kullanılır.";
+  }
+  if (reason === "telegram") {
+    return "Görsel Telegram'dan indirilemedi. Bir kez daha fotoğraf olarak gönderebilir misin?";
+  }
+  if (reason === "schema") {
+    return "Görsel okundu ama beklenen gider formatına çevrilemedi. Tekrar denersen çoğu zaman düzelir.";
+  }
+  if (reason === "amount") {
+    return "Görseldeki tutar okunamadı. Tutar kısmının net göründüğü bir görsel gönderebilirsin.";
+  }
+  return "Görseldeki giderleri anlayamadım. Loglarda hata sebebini kontrol etmek iyi olur.";
 }

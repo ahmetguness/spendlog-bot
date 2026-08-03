@@ -5,6 +5,16 @@ import { ExternalServiceError } from "../shared/errors.js";
 import { parseMoneyToMinorUnit } from "../shared/money.js";
 import { BankImageParseSchema, type BankImageExpense } from "./parsing.schemas.js";
 
+export class ImageParseError extends Error {
+  constructor(
+    message: string,
+    readonly reason: "model" | "schema" | "amount" | "unknown" = "unknown",
+  ) {
+    super(message);
+    this.name = "ImageParseError";
+  }
+}
+
 export class OpenAiBankImageParser {
   private readonly client: OpenAI;
 
@@ -97,9 +107,16 @@ Do not infer hidden or truncated text beyond what is visible. If amount or merch
         },
       });
 
-      const parsed = BankImageParseSchema.parse(JSON.parse(response.output_text));
-      if (parsed.sourceType === "unknown") return [];
-      return parsed.expenses
+      let parsedJson: unknown;
+      try {
+        parsedJson = JSON.parse(response.output_text);
+      } catch {
+        throw new ImageParseError("Image parser returned invalid JSON", "schema");
+      }
+      const parsed = BankImageParseSchema.safeParse(parsedJson);
+      if (!parsed.success) throw new ImageParseError("Image parser schema mismatch", "schema");
+      if (parsed.data.sourceType === "unknown") return [];
+      return parsed.data.expenses
         .filter((expense) => expense.confidence >= this.minConfidence)
         .filter((expense) => sanitizeMerchant(expense.merchant) !== null)
         .filter(uniqueTransaction)
@@ -117,8 +134,11 @@ Do not infer hidden or truncated text beyond what is visible. If amount or merch
           telegramMessageId: telegramMessageId * 1000 + index + 1,
         }));
     } catch (error) {
+      if (error instanceof ImageParseError) {
+        throw new ExternalServiceError(`${error.reason}: ${error.message}`);
+      }
       throw new ExternalServiceError(
-        error instanceof Error ? error.message : "OpenAI image parse failed",
+        classifyOpenAiImageError(error),
       );
     }
   }
@@ -131,6 +151,22 @@ Do not infer hidden or truncated text beyond what is visible. If amount or merch
   ): Promise<ExpenseDraft[]> {
     return this.parseExpenseImage(image, telegramMessageId, todayIso, timeZone);
   }
+}
+
+function classifyOpenAiImageError(error: unknown): string {
+  const message = error instanceof Error ? error.message : "OpenAI image parse failed";
+  const lower = message.toLocaleLowerCase("tr-TR");
+  if (
+    lower.includes("image") ||
+    lower.includes("input_image") ||
+    lower.includes("vision") ||
+    lower.includes("unsupported") ||
+    lower.includes("model")
+  ) {
+    return `model: ${message}`;
+  }
+  if (lower.includes("invalid amount")) return `amount: ${message}`;
+  return `unknown: ${message}`;
 }
 
 function normalizeBankAmount(value: string): string {
