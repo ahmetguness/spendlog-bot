@@ -88,6 +88,7 @@ export function registerMessageHandler(bot: Bot<MyContext>): void {
       return;
     }
     if (isDeleteRequest(lower)) {
+      if (await handleDirectIdDelete(ctx, lower)) return;
       const category = categoryFromText(lower);
       const found = ctx.services.report.last(deleteCandidateLimit(lower), category);
       if (found.length === 0) {
@@ -251,7 +252,7 @@ export function isPdfRequest(lower: string): boolean {
 }
 
 async function sendPdfReport(ctx: MyContext, lower: string, today: string): Promise<void> {
-  const range = parseDateRangeFromText(lower, today) ?? {
+  const range = pdfRangeFromText(ctx, lower, today) ?? {
     from: startOfMonth(today),
     to: today,
     label: "Bu ay",
@@ -270,6 +271,21 @@ async function sendPdfReport(ctx: MyContext, lower: string, today: string): Prom
   } finally {
     fs.rmSync(file, { force: true });
   }
+}
+
+function pdfRangeFromText(ctx: MyContext, lower: string, today: string) {
+  if (isAllExpensesRequest(lower)) {
+    const bounds = ctx.services.report.allDateRange();
+    return bounds ? { ...bounds, label: "Tüm harcamalar" } : null;
+  }
+  return parseDateRangeFromText(lower, today);
+}
+
+function isAllExpensesRequest(lower: string): boolean {
+  return (
+    (lower.includes("tüm") || lower.includes("tum") || lower.includes("bütün") || lower.includes("butun") || lower.includes("hepsi") || lower.includes("hepsinin")) &&
+    (lower.includes("harcama") || lower.includes("gider"))
+  );
 }
 
 function handleList(ctx: MyContext, lower: string, today: string): string {
@@ -439,7 +455,7 @@ async function handleDirectIdUpdate(
   }
 
   if (hasFieldWord(tail, ["kategori", "kategorisi", "kategorisini"])) {
-    const value = cleanUpdateValue(originalTail, /(kategori(?:si|sini)?)/iu);
+    const value = cleanUpdateValue(originalTail, CATEGORY_FIELD_RE);
     const category = parseCategoryName(value) ?? matchCategory(value);
     if (category === "Diğer" && !parseCategoryName(value)) {
       await ctx.reply(`Kategori anlaşılmadı. Örnek: #${expenseId} kategorisini Teknoloji yap`);
@@ -456,7 +472,7 @@ async function handleDirectIdUpdate(
   if (hasFieldWord(tail, ["açıklama", "aciklama", "açıklamasını", "aciklamasini"])) {
     const description = cleanUpdateValue(
       originalTail,
-      /(açıklama(?:sını|sı)?|aciklama(?:sini|si)?)/iu,
+      DESCRIPTION_FIELD_RE,
     );
     if (!description) {
       await ctx.reply(
@@ -476,7 +492,7 @@ async function handleDirectIdUpdate(
   }
 
   if (hasFieldWord(tail, ["tarih", "tarihi", "tarihini"])) {
-    const value = cleanUpdateValue(originalTail, /(tarih(?:i|ini)?)/iu);
+    const value = cleanUpdateValue(originalTail, DATE_FIELD_RE);
     const range = parseDateRangeFromText(value, today);
     if (!range || range.from !== range.to) {
       await ctx.reply(`Tarih anlaşılmadı. Örnek: #${expenseId} tarihini 1 Ağustos 2026 yap`);
@@ -494,6 +510,23 @@ async function handleDirectIdUpdate(
   await ctx.reply(
     `#${expenseId} için güncellenecek alanı anlayamadım. Örnek: #${expenseId} açıklamasını Epic Games Spider-Man yap`,
   );
+  return true;
+}
+
+async function handleDirectIdDelete(ctx: MyContext, lower: string): Promise<boolean> {
+  const match = lower.match(/#(\d+)(?:'?(?:i|ı|u|ü|yi|yı|yu|yü))?\b/u);
+  if (!match?.[1]) return false;
+
+  const expenseId = Number(match[1]);
+  const expense = ctx.services.expenses.findById(expenseId);
+  if (!expense || expense.deletedAt) {
+    await ctx.reply(`#${expenseId} numaralı aktif gider bulunamadı.`);
+    return true;
+  }
+
+  await ctx.reply(`Bu gider silinsin mi?\n\n${expenseLine(expense, 1)}`, {
+    reply_markup: deleteConfirmationKeyboard(expense.id),
+  });
   return true;
 }
 
@@ -530,21 +563,21 @@ async function handlePendingCorrection(
     patch.amountMinor = amount.amountMinor;
     patch.currency = amount.currency;
   } else if (hasFieldWord(lower, ["kategori", "kategorisi", "kategorisini"])) {
-    const value = cleanUpdateValue(text, /(kategori(?:si|sini)?)/iu);
+    const value = cleanUpdateValue(text, CATEGORY_FIELD_RE);
     patch.category = parseCategoryName(value) ?? matchCategory(value);
   } else if (hasFieldWord(lower, ["tarih", "tarihi", "tarihini"])) {
-    const value = cleanUpdateValue(text, /(tarih(?:i|ini)?)/iu);
+    const value = cleanUpdateValue(text, DATE_FIELD_RE);
     const range = parseDateRangeFromText(value, today);
     if (!range || range.from !== range.to) return false;
     patch.expenseDate = range.from;
   } else if (hasFieldWord(lower, ["işletme", "isletme"])) {
-    const merchant = cleanUpdateValue(text, /(işletme(?:si|sini)?|isletme(?:si|sini)?)/iu);
+    const merchant = cleanUpdateValue(text, MERCHANT_FIELD_RE);
     if (!merchant) return false;
     patch.merchant = merchant;
   } else if (hasFieldWord(lower, ["açıklama", "aciklama", "açıklamasını", "aciklamasini"])) {
     const description = cleanUpdateValue(
       text,
-      /(açıklama(?:sını|sı)?|aciklama(?:sini|si)?)/iu,
+      DESCRIPTION_FIELD_RE,
     );
     patch.description = description || null;
   } else {
@@ -602,10 +635,15 @@ function hasFieldWord(text: string, words: string[]): boolean {
   return words.some((word) => text.includes(word));
 }
 
+const CATEGORY_FIELD_RE = /\bkategori(?:si|sini|yi|yı|ye|ya)?\b/iu;
+const DATE_FIELD_RE = /\btarih(?:i|ini|e|te|de)?\b/iu;
+const MERCHANT_FIELD_RE = /\b(?:işletme|isletme)(?:si|sini|yi|yı|ye|ya)?\b/iu;
+const DESCRIPTION_FIELD_RE = /\b(?:açıklama|aciklama)(?:sını|sini|sı|si|yı|yi|ya|ye)?\b/iu;
+
 function cleanUpdateValue(originalTail: string, fieldPattern: RegExp): string {
   return originalTail
     .replace(fieldPattern, "")
-    .replace(/\b(?:olarak|diye)\b/giu, "")
+    .replace(/\b(?:olarak|diye|da|de)\b/giu, "")
     .replace(/\s+(?:yap|yapsana|değiştir|degistir|güncelle|guncelle|düzelt|duzelt)\s*$/iu, "")
     .trim();
 }
@@ -797,6 +835,7 @@ export function requestedLimit(lower: string): number {
 }
 
 export function deleteCandidateLimit(lower: string): number {
+  if (/#\d+/u.test(lower)) return 1;
   return lower.includes("son") ? 1 : 5;
 }
 

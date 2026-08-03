@@ -345,6 +345,14 @@ describe("repositories", () => {
     const rows = new ReportService(expenses).range(range?.from ?? "", range?.to ?? "");
     expect(rows.map((row) => row.amountMinor).sort()).toEqual([1000, 2000]);
   });
+  it("returns active expense date bounds for all-time reports", () => {
+    const expenses = new ExpenseRepository(db().sqlite);
+    expenses.create(draft({ telegramMessageId: 80, expenseDate: "2026-08-03" }));
+    const deleted = expenses.create(draft({ telegramMessageId: 81, expenseDate: "2026-01-01" }));
+    expenses.create(draft({ telegramMessageId: 82, expenseDate: "2026-09-10" }));
+    expenses.softDelete(deleted.id);
+    expect(expenses.dateBounds()).toEqual({ from: "2026-08-03", to: "2026-09-10" });
+  });
   it("soft deletes expenses", () => {
     const expenses = new ExpenseRepository(db().sqlite);
     const expense = expenses.create(draft());
@@ -567,6 +575,7 @@ describe("natural language intent helpers", () => {
     expect(isUpdateRequest("son gideri 900 tl olarak değiştir")).toBe(true);
     expect(isUpdateRequest("son harcamayı düzelt")).toBe(true);
     expect(deleteCandidateLimit("son harcamayı sil")).toBe(1);
+    expect(deleteCandidateLimit("#4'ü sil")).toBe(1);
     expect(deleteCandidateLimit("netflix giderini sil")).toBe(5);
   });
   it("extracts requested list limits", () => {

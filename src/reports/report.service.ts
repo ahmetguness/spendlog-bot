@@ -21,6 +21,10 @@ export class ReportService {
     return this.expenses.list(category ? { from, to, category } : { from, to });
   }
 
+  allDateRange() {
+    return this.expenses.dateBounds();
+  }
+
   last(limit = 10, category?: ExpenseCategory) {
     return this.expenses.list(category ? { limit, category } : { limit });
   }

@@ -108,6 +108,16 @@ export class ExpenseRepository {
       .all(params) as Expense[];
   }
 
+  dateBounds(): { from: string; to: string } | null {
+    const row = this.sqlite
+      .prepare(
+        "SELECT MIN(expense_date) as fromDate, MAX(expense_date) as toDate FROM expenses WHERE deleted_at IS NULL",
+      )
+      .get() as { fromDate: string | null; toDate: string | null };
+    if (!row.fromDate || !row.toDate) return null;
+    return { from: row.fromDate, to: row.toDate };
+  }
+
   softDelete(id: number): Expense {
     const expense = this.findById(id);
     if (!expense || expense.deletedAt) throw new NotFoundError("Expense not found");
