@@ -74,6 +74,10 @@ describe("money parser", () => {
   it("parses TRY formats", () => {
     expect(parseMoneyToMinorUnit("1.250,50")).toBe(125050);
     expect(parseAmount("₺500")?.currency).toBe("TRY");
+    expect(parseAmount("300 TL'ye benzin")?.amountMinor).toBe(30000);
+    expect(parseAmount("300 tlye benzin")?.amountMinor).toBe(30000);
+    expect(parseAmount("300 TL'lik benzin")?.amountMinor).toBe(30000);
+    expect(parseAmount("300 türk lirasına benzin")?.amountMinor).toBe(30000);
   });
   it("parses USD formats", () => {
     expect(parseAmount("$20")?.amountMinor).toBe(2000);
@@ -410,6 +414,27 @@ describe("rule parser and auth predicate", () => {
     const parsed = new RuleBasedParser().parse("yemek 450,50 tl", 5, "2026-08-03");
     expect(parsed?.amountMinor).toBe(45050);
     expect(parsed?.category).toBe("Yeme ve İçme");
+  });
+  it("parses voice-style relative date expenses", () => {
+    const parsed = new RuleBasedParser().parse(
+      "dün petrol ofisinden 300 liralık benzin aldım",
+      50,
+      "2026-08-03",
+    );
+    expect(parsed?.amountMinor).toBe(30000);
+    expect(parsed?.category).toBe("Benzin");
+    expect(parsed?.merchant).toBe("Petrol Ofisi");
+    expect(parsed?.expenseDate).toBe("2026-08-02");
+  });
+  it("parses voice-style explicit date expenses", () => {
+    const parsed = new RuleBasedParser().parse(
+      "2 ağustos 2026 tarihinde 200 liraya benzin aldım",
+      51,
+      "2026-08-10",
+    );
+    expect(parsed?.amountMinor).toBe(20000);
+    expect(parsed?.category).toBe("Benzin");
+    expect(parsed?.expenseDate).toBe("2026-08-02");
   });
   it("parses game expenses as Oyun", () => {
     const parsed = new RuleBasedParser().parse("bugün elden ring aldım 100tlye", 6, "2026-08-03");

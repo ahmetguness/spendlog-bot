@@ -8,6 +8,7 @@ import { PendingUpdateRepository } from "./database/repositories/pending-update.
 import { ProcessedUpdateRepository } from "./database/repositories/processed-update.repository.js";
 import { UndoRepository } from "./database/repositories/undo.repository.js";
 import { ExpenseService } from "./expenses/expense.service.js";
+import { OpenAiAudioTranscriber } from "./parsing/audio-transcriber.js";
 import { OpenAiBankImageParser } from "./parsing/image-parser.js";
 import { OpenAiParser } from "./parsing/openai-parser.js";
 import { ParserService } from "./parsing/parser.service.js";
@@ -36,6 +37,7 @@ const services = {
     env.PENDING_EXPENSE_TTL_MINUTES,
   ),
   parser: new ParserService(new OpenAiParser(env.OPENAI_API_KEY, env.OPENAI_MODEL)),
+  transcriber: new OpenAiAudioTranscriber(env.OPENAI_API_KEY, env.OPENAI_TRANSCRIPTION_MODEL),
   imageParser: new OpenAiBankImageParser(
     env.OPENAI_API_KEY,
     env.OPENAI_IMAGE_MODEL ?? env.OPENAI_MODEL,

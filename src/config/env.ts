@@ -7,6 +7,7 @@ const EnvSchema = z.object({
   ALLOWED_TELEGRAM_USER_ID: z.coerce.number().int().positive(),
   OPENAI_API_KEY: z.string().min(1),
   OPENAI_MODEL: z.string().min(1),
+  OPENAI_TRANSCRIPTION_MODEL: z.string().min(1).default("gpt-4o-mini-transcribe"),
   OPENAI_IMAGE_MODEL: z.preprocess(
     (value) => (value === "" ? undefined : value),
     z.string().min(1).optional(),

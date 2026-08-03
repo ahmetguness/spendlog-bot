@@ -36,6 +36,7 @@ function cleanExpenseText(text: string, rawAmount: string): string {
       /(?:^|\s)(harcadım|harcadim|ödedim|odedim|aldım|aldim|satın aldım|satin aldim|yaptım|yaptim)(?=$|\s)/giu,
       " ",
     )
+    .replace(/\b(?:liralık|liralik|liraya|lira)\b/giu, " ")
     .replace(/\b\d+\s*(?:günlük|gunluk)\b/giu, " ")
     .replace(/\b(günü|gunu|için|icin)\b/giu, " ")
     .replace(/\s+/g, " ")
@@ -52,6 +53,11 @@ function inferMerchant(text: string, category: string): string | null {
   if (category === "Oyun") {
     const gameStore = titleCased.match(/\b(Epic Games|Steam|Playstation|Xbox|Nintendo)\b/u);
     if (gameStore?.[1]) return gameStore[1];
+  }
+  if (category === "Benzin") {
+    if (/\bPetrol\s+Ofisi(?:nden|den|ne|nde)?\b/u.test(titleCased)) return "Petrol Ofisi";
+    const fuel = titleCased.match(/\b(Shell|Opet|Bp|Total|Aytemiz)\b/u);
+    if (fuel?.[1]) return fuel[1] === "Bp" ? "BP" : fuel[1];
   }
   if (category === "Abonelik") {
     const subscription = titleCased.match(

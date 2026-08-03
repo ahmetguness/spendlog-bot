@@ -9,7 +9,7 @@ export interface ParsedAmount {
 
 const AMOUNT_PATTERN = String.raw`(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)`;
 const MONEY_WITH_CURRENCY_RE = new RegExp(
-  String.raw`(?:(₺|\$|€)\s*${AMOUNT_PATTERN}|${AMOUNT_PATTERN}\s*(tl|try|lira|usd|dolar|eur|euro))`,
+  String.raw`(?:(₺|\$|€)\s*${AMOUNT_PATTERN}|${AMOUNT_PATTERN}\s*(tl'?ye|tl'?lik|tllik|tl|try|türk\s+lirası(?:na|yla)?|turk\s+lirasi(?:na|yla)?|liralık|liralik|liraya|lira|usd|dolar|eur|euro))`,
   "iu",
 );
 const BARE_MONEY_RE = new RegExp(AMOUNT_PATTERN, "iu");

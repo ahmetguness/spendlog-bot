@@ -5,12 +5,14 @@ import type { AliasRepository } from "../database/repositories/alias.repository.
 import type { ExpenseRepository } from "../database/repositories/expense.repository.js";
 import type { ProcessedUpdateRepository } from "../database/repositories/processed-update.repository.js";
 import type { ExpenseService } from "../expenses/expense.service.js";
+import type { OpenAiAudioTranscriber } from "../parsing/audio-transcriber.js";
 import type { OpenAiBankImageParser } from "../parsing/image-parser.js";
 import type { ParserService } from "../parsing/parser.service.js";
 import type { PdfReportService } from "../reports/pdf-report.service.js";
 import type { ReportService } from "../reports/report.service.js";
 import { logger } from "../shared/logger.js";
 import { registerCommands } from "./commands.js";
+import { registerAudioHandler } from "./handlers/audio.handler.js";
 import { registerCallbackHandlers } from "./handlers/callback.handler.js";
 import { registerImageHandler } from "./handlers/image.handler.js";
 import { registerMessageHandler } from "./handlers/message.handler.js";
@@ -22,6 +24,7 @@ export interface Services {
   processed: ProcessedUpdateRepository;
   expense: ExpenseService;
   parser: ParserService;
+  transcriber: OpenAiAudioTranscriber;
   imageParser: OpenAiBankImageParser;
   report: ReportService;
   pdfReport: PdfReportService;
@@ -52,6 +55,7 @@ export function createBot(env: Env, services: Services): Bot<MyContext> {
   });
   registerCommands(bot);
   registerCallbackHandlers(bot);
+  registerAudioHandler(bot);
   registerImageHandler(bot);
   registerMessageHandler(bot);
   bot.catch((err) => {

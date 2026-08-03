@@ -20,6 +20,8 @@ geçen ay kaç tl harcadım
 
 `bu ay kaç tl harcadım` sorgusu içinde bulunulan ayın ilk gününden bugüne kadar olan kayıtları toplar. `geçen ay kaç tl harcadım` sorgusu önceki ayın ilk günü ile son günü arasındaki kayıtları toplar.
 
+Sesli mesaj gönderildiğinde bot sesi Türkçe metne çevirir ve çıkan metni normal gider ekleme akışına sokar. Örneğin “200 liraya benzin aldım” diye ses gönderildiğinde onaylı gider kaydı hazırlanır.
+
 ## 3. Kullanılan Teknolojiler
 
 Node.js, TypeScript strict mode, grammY, SQLite, Drizzle ORM, Zod, OpenAI resmi Node.js SDK, OpenAI Responses API, Docker, Docker Compose, pnpm, Pino, Vitest, ESLint ve Prettier kullanılır.
@@ -54,7 +56,7 @@ Telegram kullanıcı ID’nizi `@userinfobot` gibi bir yardımcı bot ile öğre
 
 ## 8. OpenAI API Anahtarı Tanımlama
 
-OpenAI API anahtarınızı `OPENAI_API_KEY` alanına, Structured Outputs destekleyen model adını `OPENAI_MODEL` alanına yazın. Banka ekran görüntüsü ve alışveriş fişi analizi için `OPENAI_IMAGE_MODEL` opsiyoneldir; boş bırakılırsa `OPENAI_MODEL` kullanılır. OCR doğruluğu için görüntü destekleyen güçlü bir model seçilmelidir. Model adları kodda hard-code edilmez.
+OpenAI API anahtarınızı `OPENAI_API_KEY` alanına, Structured Outputs destekleyen model adını `OPENAI_MODEL` alanına yazın. Sesli mesaj transkripsiyonu için `OPENAI_TRANSCRIPTION_MODEL`, banka ekran görüntüsü ve alışveriş fişi analizi için `OPENAI_IMAGE_MODEL` kullanılır. `OPENAI_IMAGE_MODEL` boş bırakılırsa `OPENAI_MODEL` kullanılır. OCR doğruluğu için görüntü destekleyen güçlü bir model seçilmelidir. Model adları kodda hard-code edilmez.
 
 ## 9. Environment Variables
 
@@ -65,6 +67,7 @@ TELEGRAM_BOT_TOKEN=
 ALLOWED_TELEGRAM_USER_ID=
 OPENAI_API_KEY=
 OPENAI_MODEL=
+OPENAI_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe
 OPENAI_IMAGE_MODEL=
 MAX_IMAGE_EXPENSES=10
 MIN_IMAGE_CONFIDENCE=0.8
