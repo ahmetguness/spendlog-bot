@@ -117,6 +117,14 @@ describe("date and category parser", () => {
         to: "2026-08-31",
       },
     );
+    expect(parseDateRangeFromText("bu ay kaç tl harcadım", "2026-08-05")).toMatchObject({
+      from: "2026-08-01",
+      to: "2026-08-05",
+    });
+    expect(parseDateRangeFromText("geçen ay kaç tl harcadım", "2026-08-05")).toMatchObject({
+      from: "2026-07-01",
+      to: "2026-07-31",
+    });
     expect(parseDateRangeFromText("2026 yıllık raporu gönder", "2036-08-03")).toMatchObject({
       from: "2026-01-01",
       to: "2026-12-31",
@@ -435,6 +443,8 @@ describe("natural language intent helpers", () => {
   it("recognizes broader summary requests", () => {
     expect(isSummary("bu ay masrafım ne")).toBe(true);
     expect(isSummary("bugün kaç para harcadım")).toBe(true);
+    expect(isSummary("bu ay kaç tl harcadım")).toBe(true);
+    expect(isSummary("geçen ay kaç tl harcadım")).toBe(true);
     expect(isSummary("bu hafta ne tuttu")).toBe(true);
     expect(isSummary("2026 raporu gönder")).toBe(true);
   });

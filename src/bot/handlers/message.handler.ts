@@ -188,6 +188,8 @@ export function isSummary(lower: string): boolean {
     lower.includes("toplam") ||
     lower.includes("kaç para") ||
     lower.includes("kac para") ||
+    lower.includes("kaç tl") ||
+    lower.includes("kac tl") ||
     lower.includes("masrafım ne") ||
     lower.includes("masrafim ne") ||
     lower.includes("harcamam ne") ||

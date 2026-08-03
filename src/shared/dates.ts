@@ -113,6 +113,14 @@ export function parseDateRangeFromText(text: string, todayIso: string): DateRang
   if (lower.includes("hafta")) {
     return { from: startOfWeek(todayIso), to: todayIso, label: "Bu hafta" };
   }
+  if (lower.includes("geçen ay") || lower.includes("gecen ay")) {
+    const currentYear = Number(todayIso.slice(0, 4));
+    const currentMonth = Number(todayIso.slice(5, 7));
+    const previousMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+    const year = currentMonth === 1 ? currentYear - 1 : currentYear;
+    const from = `${year}-${String(previousMonth).padStart(2, "0")}-01`;
+    return { from, to: endOfMonth(from), label: "Geçen ay" };
+  }
   if (lower.includes("ay")) {
     return { from: startOfMonth(todayIso), to: todayIso, label: "Bu ay" };
   }

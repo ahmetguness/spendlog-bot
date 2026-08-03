@@ -8,6 +8,18 @@ Bu proje tek kişinin Telegram üzerinden doğal dil ile kişisel gider kaydı t
 
 Gider ekleme, onaylı pending kayıt akışı, günlük/haftalık/aylık raporlar, son gider listesi, kategori özetleri, CSV export, SQLite backup, soft delete, doğal dil ile güncelleme ve duplicate Telegram update koruması bulunur.
 
+Telegram'da doğal dil ile gider ekleyebilir ve rapor isteyebilirsiniz:
+
+```text
+Migros 850 TL
+Dün 240 TL benzin
+Netflix 12 euro
+bu ay kaç tl harcadım
+geçen ay kaç tl harcadım
+```
+
+`bu ay kaç tl harcadım` sorgusu içinde bulunulan ayın ilk gününden bugüne kadar olan kayıtları toplar. `geçen ay kaç tl harcadım` sorgusu önceki ayın ilk günü ile son günü arasındaki kayıtları toplar.
+
 ## 3. Kullanılan Teknolojiler
 
 Node.js, TypeScript strict mode, grammY, SQLite, Drizzle ORM, Zod, OpenAI resmi Node.js SDK, OpenAI Responses API, Docker, Docker Compose, pnpm, Pino, Vitest, ESLint ve Prettier kullanılır.
