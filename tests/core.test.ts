@@ -549,6 +549,13 @@ describe("natural language intent helpers", () => {
     expect(isListRequest("sadece oyunları göster")).toBe(true);
     expect(isListRequest("apple olanlar")).toBe(true);
     expect(isListRequest("1000 tl üstü olanlar")).toBe(true);
+    expect(isListRequest("bu ay yeme içme harcama detayımı ver")).toBe(true);
+    expect(isListRequest("bu ay market giderlerine bak")).toBe(true);
+    expect(isListRequest("ağustos yemek harcamalarını getirir misin")).toBe(true);
+    expect(isListRequest("geçen ay nerelere para vermişim")).toBe(true);
+    expect(isListRequest("fatura işlemlerimin dökümünü yazar mısın")).toBe(true);
+    expect(isListRequest("migros'a 850 tl verdim")).toBe(false);
+    expect(isListRequest("yemek 450 tl verdim")).toBe(false);
   });
   it("recognizes duplicate checks", () => {
     expect(isDuplicateRequest("tekrar eden kayıtları göster")).toBe(true);
@@ -620,6 +627,10 @@ describe("natural language intent helpers", () => {
     expect(isSummary("bu hafta ne tuttu")).toBe(true);
     expect(isSummary("2026 raporu gönder")).toBe(true);
     expect(isSummary("son 3 giderim ne")).toBe(true);
+    expect(isSummary("bu ayki masraf özeti")).toBe(true);
+    expect(isSummary("yeme içme toplam tutarı ne durumda")).toBe(true);
+    expect(isSummary("ağustos gider durumu ne")).toBe(true);
+    expect(isSummary("netflix tutar 120 tl")).toBe(false);
   });
   it("recognizes PDF statement requests", () => {
     expect(isPdfRequest("ağustos ayının ekstresini pdf yap")).toBe(true);

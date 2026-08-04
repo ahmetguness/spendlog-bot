@@ -185,17 +185,30 @@ export function registerMessageHandler(bot: Bot<MyContext>): void {
 }
 
 export function isSummary(lower: string): boolean {
+  const readSubject = hasReadSubject(lower);
+  const hasAmount = parseAmount(lower) !== null;
   return (
     lower.includes("ne kadar") ||
     lower.includes("toplam") ||
+    lower.includes("özet") ||
+    lower.includes("ozet") ||
+    (!hasAmount && lower.includes("tutar")) ||
     lower.includes("kaç para") ||
     lower.includes("kac para") ||
+    lower.includes("kaç harcad") ||
+    lower.includes("kac harcad") ||
+    lower.includes("kaç masraf") ||
+    lower.includes("kac masraf") ||
     lower.includes("kaç tl") ||
     lower.includes("kac tl") ||
     lower.includes("masrafım ne") ||
     lower.includes("masrafim ne") ||
     lower.includes("harcamam ne") ||
     lower.includes("giderim ne") ||
+    (readSubject &&
+      (lower.includes("ne durumda") ||
+        lower.includes("durum ne") ||
+        lower.includes("durumu ne"))) ||
     lower.includes("kaça patladı") ||
     lower.includes("kaca patladi") ||
     lower.includes("ne tuttu") ||
@@ -209,6 +222,8 @@ export function isSummary(lower: string): boolean {
 }
 
 export function isListRequest(lower: string): boolean {
+  const readSubject = hasReadSubject(lower);
+  const hasAmount = parseAmount(lower) !== null;
   return (
     /\bson\s+\d{1,2}\s+(?:gider(?:im|imi|lerim|lerimi)?|harcama(?:m|mı|larım|larımı)?|işlem(?:im|imi|lerim|lerimi)?|islem(?:im|imi|lerim|lerimi)?)\b/u.test(
       lower,
@@ -235,6 +250,16 @@ export function isListRequest(lower: string): boolean {
     lower.includes("nerelere para verdim") ||
     lower.includes("hangi harcamalar") ||
     lower.includes("hangi giderler") ||
+    lower.includes("detay") ||
+    lower.includes("ayrıntı") ||
+    lower.includes("ayrinti") ||
+    lower.includes("döküm") ||
+    lower.includes("dokum") ||
+    lower.includes("nereye") ||
+    lower.includes("nerelere") ||
+    lower.includes("kimlere") ||
+    lower.includes("kime") ||
+    (!hasAmount && readSubject && hasReadVerb(lower)) ||
     lower.includes("sadece ") ||
     lower.includes("filtrele") ||
     lower.includes("olanlar") ||
@@ -242,6 +267,31 @@ export function isListRequest(lower: string): boolean {
     lower.includes("ustu") ||
     lower.includes("altı") ||
     lower.includes("alti")
+  );
+}
+
+function hasReadVerb(lower: string): boolean {
+  return (
+    /\b(?:getir(?:ir misin)?|ver(?:ir misin)?|bak(?:ar mısın|ar misin)?|paylaş|paylas)\b/u.test(
+      lower,
+    ) ||
+    lower.includes("yazar mısın") ||
+    lower.includes("yazar misin") ||
+    lower.includes("ne var") ||
+    lower.includes("neler var")
+  );
+}
+
+function hasReadSubject(lower: string): boolean {
+  return (
+    lower.includes("harcama") ||
+    lower.includes("gider") ||
+    lower.includes("masraf") ||
+    lower.includes("işlem") ||
+    lower.includes("islem") ||
+    lower.includes("kayıt") ||
+    lower.includes("kayit") ||
+    categoryFromText(lower) !== undefined
   );
 }
 

@@ -2,7 +2,10 @@ import { CATEGORIES, type ExpenseCategory } from "../shared/constants.js";
 
 const KEYWORDS: Array<[ExpenseCategory, string[]]> = [
   ["Market", ["migros", "a101", "bim", "şok", "sok", "market", "carrefour"]],
-  ["Yeme ve İçme", ["restoran", "kahve", "yemek", "kafe", "burger", "pizza"]],
+  [
+    "Yeme ve İçme",
+    ["restoran", "kahve", "yemek", "yeme", "içme", "icme", "kafe", "burger", "pizza"],
+  ],
   ["Benzin", ["benzin", "mazot", "petrol", "shell", "opet", "bp"]],
   ["Ulaşım", ["taksi", "otobüs", "otobus", "metro", "izban", "ulaşım", "ulasim"]],
   [
