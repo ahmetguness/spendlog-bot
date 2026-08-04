@@ -2,32 +2,39 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { InputFile, type Bot } from "grammy";
+import type { BotCommand } from "grammy/types";
 import type { MyContext } from "./create-bot.js";
 import { CATEGORIES, CATEGORY_EMOJI } from "../shared/constants.js";
 import { formatTotals, formatExpenseList } from "./messages/report.messages.js";
 import { parseDateRangeFromText, startOfMonth, todayInTimezone } from "../shared/dates.js";
 import { pdfTitle } from "./handlers/message.handler.js";
+import { helpMessage } from "./messages/expense.messages.js";
 
 export function registerCommands(bot: Bot<MyContext>): void {
+  const menuCommands = [
+    { command: "start", description: "Botu başlat" },
+    { command: "yardim", description: "Örnekler ve komutlar" },
+    { command: "bugun", description: "Bugünkü gider özeti" },
+    { command: "hafta", description: "Bu haftaki gider özeti" },
+    { command: "ay", description: "Bu ayki gider özeti" },
+    { command: "son", description: "Son 10 harcama" },
+    { command: "kategoriler", description: "Kategori listesi" },
+    { command: "pdf", description: "PDF ekstre gönder" },
+    { command: "export", description: "CSV dışa aktar" },
+    { command: "backup", description: "Veritabanı yedeği al" },
+  ] satisfies BotCommand[];
+
+  void bot.api.setMyCommands(menuCommands).catch(() => undefined);
+
   bot.command("start", (ctx) =>
     ctx.reply(
-      "Kişisel gider takip botu hazır. Örnek: Migros 850 TL, Dün 240 TL benzin, Netflix 12 euro",
+      "Kişisel gider takip botu hazır. Harcama ekleyebilir, doğal dille rapor sorabilir ve /yardim ile örnekleri görebilirsin.",
     ),
   );
-  bot.command("help", (ctx) =>
-    ctx.reply(`/today /week /month /last /categories /export /backup
-
-Doğal dil örnekleri:
-Bugün Migros'a 850 TL verdim
-Bu ay ne kadar harcadım?
-Son harcamayı sil
-Son harcamayı 900 TL yap
-Bu ayın ekstresini PDF gönder`),
-  );
-  bot.command("categories", (ctx) =>
-    ctx.reply(CATEGORIES.map((c) => `${CATEGORY_EMOJI[c]} ${c}`).join("\n")),
-  );
-  bot.command("today", (ctx) =>
+  bot.command(["help", "yardim", "komutlar"], (ctx) => ctx.reply(helpMessage()));
+  bot.hears(/^\/yardım(?:@\w+)?(?:\s|$)/iu, (ctx) => ctx.reply(helpMessage()));
+  bot.command(["categories", "kategori", "kategoriler"], (ctx) => ctx.reply(categoriesMessage()));
+  bot.command(["today", "bugun"], (ctx) =>
     ctx.reply(
       formatTotals(
         "📊 Bugünkü giderlerin",
@@ -35,7 +42,15 @@ Bu ayın ekstresini PDF gönder`),
       ),
     ),
   );
-  bot.command("week", (ctx) =>
+  bot.hears(/^\/bugün(?:@\w+)?(?:\s|$)/iu, (ctx) =>
+    ctx.reply(
+      formatTotals(
+        "📊 Bugünkü giderlerin",
+        ctx.services.report.today(todayInTimezone(ctx.env.DEFAULT_TIMEZONE)),
+      ),
+    ),
+  );
+  bot.command(["week", "hafta"], (ctx) =>
     ctx.reply(
       formatTotals(
         "📊 Bu haftaki giderlerin",
@@ -43,7 +58,7 @@ Bu ayın ekstresini PDF gönder`),
       ),
     ),
   );
-  bot.command("month", (ctx) =>
+  bot.command(["month", "ay"], (ctx) =>
     ctx.reply(
       formatTotals(
         "📊 Bu ayki giderlerin",
@@ -51,7 +66,7 @@ Bu ayın ekstresini PDF gönder`),
       ),
     ),
   );
-  bot.command("last", (ctx) =>
+  bot.command(["last", "son"], (ctx) =>
     ctx.reply(formatExpenseList("Son 10 harcama", ctx.services.report.last(10))),
   );
   bot.command("export", async (ctx) => {
@@ -111,6 +126,10 @@ Bu ayın ekstresini PDF gönder`),
       fs.rmSync(file, { force: true });
     }
   });
+}
+
+function categoriesMessage(): string {
+  return `Kategoriler\n\n${CATEGORIES.map((c) => `${CATEGORY_EMOJI[c]} ${c}`).join("\n")}`;
 }
 
 function csv(value: string): string {

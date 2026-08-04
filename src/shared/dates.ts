@@ -81,7 +81,7 @@ export function parseDateRangeFromText(text: string, todayIso: string): DateRang
   }
 
   const monthWithoutYear = lower.match(
-    /\b([a-zçğıöşü]+)\s+ay(?:ında|inin|ının|unun|ünün|ı|i|u|ü)?\b/u,
+    /\b([a-zçğıöşü]+)(?:\s+ay(?:ında|inin|ının|unun|ünün|ı|i|u|ü)?|'?(?:de|da|te|ta))\b/u,
   );
   if (monthWithoutYear?.[1] && MONTHS[monthWithoutYear[1]] !== undefined) {
     const year = todayIso.slice(0, 4);

@@ -135,6 +135,14 @@ describe("date and category parser", () => {
         to: "2026-08-31",
       },
     );
+    expect(parseDateRangeFromText("temmuzda oyun harcaması olmuş mu", "2026-08-05")).toMatchObject({
+      from: "2026-07-01",
+      to: "2026-07-31",
+    });
+    expect(parseDateRangeFromText("ağustosta teknolojiden ne almışım", "2026-09-03")).toMatchObject({
+      from: "2026-08-01",
+      to: "2026-08-31",
+    });
     expect(parseDateRangeFromText("bu ay kaç tl harcadım", "2026-08-05")).toMatchObject({
       from: "2026-08-01",
       to: "2026-08-05",
@@ -554,8 +562,22 @@ describe("natural language intent helpers", () => {
     expect(isListRequest("ağustos yemek harcamalarını getirir misin")).toBe(true);
     expect(isListRequest("geçen ay nerelere para vermişim")).toBe(true);
     expect(isListRequest("fatura işlemlerimin dökümünü yazar mısın")).toBe(true);
+    expect(isListRequest("geçen ay oyun harcamam var mı")).toBe(true);
+    expect(isListRequest("temmuzda oyun harcaması olmuş mu")).toBe(true);
+    expect(isListRequest("bu hafta market alışverişi yapmış mıyım")).toBe(true);
+    expect(isListRequest("geçen ay benzine harcamış mıyım")).toBe(true);
+    expect(isListRequest("ağustosta teknolojiden ne almışım")).toBe(true);
+    expect(isListRequest("bu ay abonelik almış mıyım")).toBe(true);
+    expect(isListRequest("bu ay market harcamalarını kontrol et")).toBe(true);
+    expect(isListRequest("geçen hafta yemek giderlerini incele")).toBe(true);
+    expect(isListRequest("bu ay hangi işletmelere para gitmiş")).toBe(true);
+    expect(isListRequest("son işlemlerimi listeler misin")).toBe(true);
+    expect(isListRequest("teknoloji giderlerimi bul")).toBe(true);
+    expect(isListRequest("bu ay nerelerde harcamışım")).toBe(true);
+    expect(isListRequest("ağustos giderlerinden ne gitmiş")).toBe(true);
     expect(isListRequest("migros'a 850 tl verdim")).toBe(false);
     expect(isListRequest("yemek 450 tl verdim")).toBe(false);
+    expect(isListRequest("market 850 tl kontrol et")).toBe(false);
   });
   it("recognizes duplicate checks", () => {
     expect(isDuplicateRequest("tekrar eden kayıtları göster")).toBe(true);
@@ -630,6 +652,8 @@ describe("natural language intent helpers", () => {
     expect(isSummary("bu ayki masraf özeti")).toBe(true);
     expect(isSummary("yeme içme toplam tutarı ne durumda")).toBe(true);
     expect(isSummary("ağustos gider durumu ne")).toBe(true);
+    expect(isSummary("bu ay kaç işlem var")).toBe(true);
+    expect(isSummary("geçen ay kaç kayıt olmuş")).toBe(true);
     expect(isSummary("netflix tutar 120 tl")).toBe(false);
   });
   it("recognizes PDF statement requests", () => {

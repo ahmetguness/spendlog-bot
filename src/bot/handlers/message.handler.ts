@@ -199,6 +199,10 @@ export function isSummary(lower: string): boolean {
     lower.includes("kac harcad") ||
     lower.includes("kaç masraf") ||
     lower.includes("kac masraf") ||
+    lower.includes("kaç işlem") ||
+    lower.includes("kac islem") ||
+    lower.includes("kaç kayıt") ||
+    lower.includes("kac kayit") ||
     lower.includes("kaç tl") ||
     lower.includes("kac tl") ||
     lower.includes("masrafım ne") ||
@@ -257,6 +261,12 @@ export function isListRequest(lower: string): boolean {
     lower.includes("dokum") ||
     lower.includes("nereye") ||
     lower.includes("nerelere") ||
+    lower.includes("nerede") ||
+    lower.includes("nerelerde") ||
+    lower.includes("hangi işletme") ||
+    lower.includes("hangi isletme") ||
+    lower.includes("hangi yer") ||
+    lower.includes("hangi kalem") ||
     lower.includes("kimlere") ||
     lower.includes("kime") ||
     (!hasAmount && readSubject && hasReadVerb(lower)) ||
@@ -272,13 +282,28 @@ export function isListRequest(lower: string): boolean {
 
 function hasReadVerb(lower: string): boolean {
   return (
-    /\b(?:getir(?:ir misin)?|ver(?:ir misin)?|bak(?:ar mısın|ar misin)?|paylaş|paylas)\b/u.test(
-      lower,
-    ) ||
+    /\b(?:getir(?:ir misin)?|ver(?:ir misin)?|bak(?:ar mısın|ar misin|abilir misin)?|paylaş|paylas|söyle|soyle|anlat|çıkar|cikar|kontrol et|incele|bul)\b/u.test(lower) ||
+    /\b(?:döker misin|doker misin|listeler misin|gösterir misin|gosterir misin)\b/u.test(lower) ||
     lower.includes("yazar mısın") ||
     lower.includes("yazar misin") ||
     lower.includes("ne var") ||
-    lower.includes("neler var")
+    lower.includes("neler var") ||
+    lower.includes("ne olmuş") ||
+    lower.includes("ne olmus") ||
+    lower.includes("ne gitmiş") ||
+    lower.includes("ne gitmis") ||
+    lower.includes("var mı") ||
+    lower.includes("var mi") ||
+    lower.includes("olmuş mu") ||
+    lower.includes("olmus mu") ||
+    lower.includes("yapmış mıyım") ||
+    lower.includes("yapmis miyim") ||
+    lower.includes("harcamış mıyım") ||
+    lower.includes("harcamis miyim") ||
+    lower.includes("almış mıyım") ||
+    lower.includes("almis miyim") ||
+    lower.includes("ne almışım") ||
+    lower.includes("ne almisim")
   );
 }
 
